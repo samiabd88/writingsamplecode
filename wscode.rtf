@@ -1,0 +1,81 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1504\cocoasubrtf830
+{\fonttbl\f0\froman\fcharset0 Times-Roman;\f1\froman\fcharset0 TimesNewRomanPSMT;}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;}
+{\*\expandedcolortbl;;\cssrgb\c0\c0\c0;}
+\margl1440\margr1440\vieww10800\viewh8400\viewkind0
+\deftab720
+\pard\pardeftab720\sl280\partightenfactor0
+
+\f0\fs24 \cf2 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 \
+\pard\pardeftab720\sl320\partightenfactor0
+
+\f1\fs26\fsmilli13333 \cf2 rm(list=ls())\
+#Install Required Packages\
+install.packages("glmnet")\
+install.packages("MASS")\
+install.packages("rpart")\
+install.packages("rpart.plot")\
+#Load Data\
+data=read.csv("/Users/samiabd/Documents/ECN724FinalProjectDataSamiAbdurahman500641689.csv", header = TRUE, sep = ",")\
+attach(data)\
+n = 186\
+#Set Variables\
+X = cbind(hand,height,ip,war,lob,babip,k,bb,kbb,ld,gb,fb,iffb,hrfb,strikes,pitches,pull,oppo,soft,hard,fb.1,fbv,slider,contact,zone,fstrike,swstr)\
+y = daysinjured16\
+#Create training and test samples\
+set.seed(100)\
+train <- sample(1:n, .75*n)\
+X_train <- X[train, ]\
+X_test <- X[-train, ]\
+y_train <- y[train]\
+y_test <- y[-train]\
+#Center response, standardize features\
+X_train <- sweep(X_train,2,apply(X_train,2,mean)) \
+X_train <- sweep(X_train,2,apply(X_train,2,sd),"/")\
+X_test <- sweep(X_test,2,apply(X_test,2,mean)) \
+X_test <- sweep(X_test,2,apply(X_test,2,sd),"/")\
+y_train <- y_train - mean(y_train)\
+y_test <- y_test - mean(y_test)\
+#Create data frames with centered response and standardized features\
+data_train <- data.frame(y_train, X_train)\
+data_test <- data.frame(y_test, X_test)\
+#OLS regression\
+fit.ols <- lm(y_train ~ 0 + X_train, data=data_train)\
+betahat.ols <- fit.ols$coefficients\
+pred.ols <- predict(fit.ols, newdata = data_test)\
+mse.ols <- mean((pred.ols-y_test)^2)\
+ssr.ols <- sum((y_test - (X_test*betahat.ols))^2)\
+#Lambda\
+library(glmnet)\
+grid=10^seq(5,-2,length=100)\
+#Ridge\
+cv.ridge <- cv.glmnet(X_train, y_train, type.measure="mse", alpha = 0, lambda=grid, family="gaussian")\
+plot(cv.ridge, main="Ridge")\
+bestlambda.r=cv.ridge$lambda.min\
+fit.ridge <- glmnet(X_train, y_train, family="gaussian", alpha=0)\
+plot(fit.ridge, xvar="lambda", main="Ridge")\
+pred.ridge <- predict(fit.ridge,s=bestlambda.r,newx=X_test)\
+mse.ridge <- mean((pred.ridge-y_test)^2)\
+#Ridge Regression\
+library(MASS)\
+ridge <- lm.ridge(y_test ~ 0 + X_test, lambda=bestlambda.r)\
+betahat.ridge <- ridge$coef\
+ssr.ridge <- sum((y_test - (X_test*betahat.ridge))^2)\
+#Lasso\
+cv.lasso <- cv.glmnet(X_train, y_train, type.measure="mse", alpha = 1, lambda=grid, family="gaussian")\
+plot(cv.lasso, main="Lasso")\
+bestlambda.l=cv.lasso$lambda.min\
+fit.lasso <- glmnet(X_train, y_train, family="gaussian", alpha=1)\
+plot(fit.lasso, xvar="lambda", main="Lasso")\
+pred.lasso <- predict(fit.lasso, s=bestlambda.l, newx=X_test)\
+mse.lasso <- mean((pred.lasso-y_test)^2)\
+lasso = glmnet(X_test, y_test, alpha=1, lambda=grid)\
+betahat.lasso <- predict(lasso, type="coefficients",s=bestlambda.l)[1:27]\
+ssr.lasso <- sum((y_test - (X_test*betahat.lasso))^2)\
+#rpart\
+library(rpart)\
+library(rpart.plot)\
+fit.tree <- rpart(injured16[train] ~ hand + lob + bb, data=data_train, method="anova", control=rpart.control(minsplit = 30)) \
+rpart.plot(fit.tree, tweak=1.2, box.palette = c("green", "GnRd", "red"))\
+}
